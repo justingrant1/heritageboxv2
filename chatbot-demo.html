@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heritagebox Chat Widget Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f6f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .demo-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            position: relative;
+        }
+        
+        .demo-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .demo-header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .demo-header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        /* Chat Widget Styles */
+        .chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .chat-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .chat-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+        }
+        
+        .chat-window {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 380px;
+            height: 550px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .chat-window.open {
+            display: flex;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .chat-info h3 {
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        
+        .chat-info p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9ff;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            padding: 12px 16px;
+            border-radius: 18px 18px 18px 4px;
+            max-width: 85%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            line-height: 1.4;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 18px 18px 4px 18px;
+            max-width: 85%;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 18px 18px 18px 4px;
+            max-width: 85%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: #ccc;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+        
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #eee;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .chat-input input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+        
+        .send-button:hover {
+            transform: scale(1.1);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .quick-action {
+            background: #e3e7ff;
+            color: #667eea;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        .quick-action:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        @media (max-width: 420px) {
+            .chat-window {
+                width: calc(100vw - 40px);
+                right: -10px;
+            }
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🎞️ Heritagebox</h1>
+            <p>Professional Media Digitization Services</p>
+        </div>
+        
+        <div style="background: #f8f9ff; padding: 30px; border-radius: 15px; text-align: center;">
+            <h2 style="color: #333; margin-bottom: 15px;">See Our AI Assistant in Action</h2>
+            <p style="color: #666; margin-bottom: 20px;">Click the chat button in the bottom right to experience how customers will interact with your Heritagebox AI assistant. It's powered by Claude AI and can help with project inquiries, pricing, and order status.</p>
+            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 25px;">
+                <div style="background: white; padding: 15px; border-radius: 10px; flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">💬</div>
+                    <strong>Smart Conversations</strong>
+                    <p style="font-size: 14px; color: #666; margin-top: 5px;">Powered by Claude AI</p>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 10px; flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">🗃️</div>
+                    <strong>Airtable Connected</strong>
+                    <p style="font-size: 14px; color: #666; margin-top: 5px;">Real project data</p>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 10px; flex: 1; min-width: 200px;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">🎯</div>
+                    <strong>24/7 Available</strong>
+                    <p style="font-size: 14px; color: #666; margin-top: 5px;">Instant responses</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Widget -->
+    <div class="chat-widget">
+        <button class="chat-toggle" onclick="toggleChat()">💬</button>
+        
+        <div class="chat-window" id="chatWindow">
+            <div class="status-indicator" id="statusIndicator">🔴 Disconnected</div>
+            
+            <div class="chat-header">
+                <div class="chat-avatar">🎞️</div>
+                <div class="chat-info">
+                    <h3>Heritagebox Assistant</h3>
+                    <p>Here to help with your digitization needs</p>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot">
+                    <div class="message-content">
+                        Hi! I'm your Heritagebox AI assistant. I can help you with:
+                        <br><br>
+                        📸 Photo digitization pricing<br>
+                        🎬 Video transfer options<br>
+                        📦 Project status updates<br>
+                        ⏱️ Turnaround times<br>
+                        <br>
+                        What would you like to know?
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-action" onclick="sendQuickMessage('How much does photo scanning cost?')">Photo Pricing</button>
+                    <button class="quick-action" onclick="sendQuickMessage('Check my order status')">Order Status</button>
+                    <button class="quick-action" onclick="sendQuickMessage('Video transfer options')">Video Transfer</button>
+                </div>
+            </div>
+            
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            
+            <div class="chat-input">
+                <div class="input-container">
+                    <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                    <button class="send-button" onclick="sendMessage()" id="sendButton">
+                        ➤
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chatOpen = false;
+        let sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Check server connection on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkServerConnection();
+        });
+
+        async function checkServerConnection() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const result = await response.json();
+                
+                if (result.status === 'healthy') {
+                    statusIndicator.textContent = '🟢 Connected';
+                    statusIndicator.className = 'status-indicator status-connected';
+                } else {
+                    throw new Error('Server not healthy');
+                }
+            } catch (error) {
+                console.error('Server connection failed:', error);
+                statusIndicator.textContent = '🔴 Server Offline';
+                statusIndicator.className = 'status-indicator status-disconnected';
+            }
+        }
+        
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            const chatToggle = document.querySelector('.chat-toggle');
+            
+            chatOpen = !chatOpen;
+            
+            if (chatOpen) {
+                chatWindow.classList.add('open');
+                chatToggle.innerHTML = '✕';
+            } else {
+                chatWindow.classList.remove('open');
+                chatToggle.innerHTML = '💬';
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function sendQuickMessage(message) {
+            document.getElementById('messageInput').value = message;
+            sendMessage();
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // Show typing indicator
+            showTyping();
+            
+            try {
+                // Call our Express server
+                const response = await fetch('http://localhost:3001/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        sessionId: sessionId
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                hideTyping();
+                
+                if (result.success) {
+                    addMessage(result.response, 'bot');
+                } else {
+                    addMessage(`❌ Error: ${result.error}`, 'bot');
+                }
+                
+            } catch (error) {
+                console.error('Chat error:', error);
+                hideTyping();
+                
+                // Check if it's a connection error
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    addMessage(`❌ **Connection Error**<br><br>Cannot connect to the chat server. Please make sure:<br><br>• The server is running on port 3001<br>• Run: <code>node chat-server.js</code><br><br>Check the console for details.`, 'bot');
+                } else {
+                    addMessage(`❌ **Error**: ${error.message}<br><br>Please try again or contact support.`, 'bot');
+                }
+                
+                // Update connection status
+                await checkServerConnection();
+            }
+        }
+        
+        function addMessage(content, sender) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">${content}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function showTyping() {
+            document.getElementById('typingIndicator').style.display = 'block';
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+        }
+        
+        function hideTyping() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+        
+        // Auto-scroll to bottom when new messages arrive
+        const observer = new MutationObserver(() => {
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+        
+        observer.observe(document.getElementById('chatMessages'), {
+            childList: true,
+            subtree: true
+        });
+    </script>
+</body>
+</html>
