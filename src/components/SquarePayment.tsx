@@ -286,9 +286,38 @@ const SquarePayment = ({ onSuccess, buttonColorClass, isProcessing, amount, orde
 
       const paymentResult = await response.json();
 
-      if (paymentResult.success) {
+      if (paymentResult.success && paymentResult.payment.status === 'COMPLETED') {
         toast.success("Payment successful!");
         onSuccess(paymentResult);
+      } else if (paymentResult.success) {
+        // Poll for completion
+        const pollPaymentStatus = async (paymentId: string) => {
+          const poll = async (retries: number): Promise<any> => {
+            if (retries === 0) {
+              throw new Error("Payment confirmation timed out.");
+            }
+
+            const statusResponse = await fetch(`/api/payment-status?paymentId=${paymentId}`);
+            const statusResult = await statusResponse.json();
+
+            if (statusResult.success && statusResult.payment.status === 'COMPLETED') {
+              return statusResult;
+            } else {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              return poll(retries - 1);
+            }
+          };
+          return poll(10); // Poll for 20 seconds
+        };
+
+        try {
+          const finalPaymentResult = await pollPaymentStatus(paymentResult.payment.id);
+          toast.success("Payment confirmed!");
+          onSuccess(finalPaymentResult);
+        } catch (pollError) {
+          toast.error(pollError.message || "Payment confirmation failed.");
+          onError(pollError);
+        }
       } else {
         toast.error(paymentResult.error || "Payment failed");
         onError(paymentResult.error);

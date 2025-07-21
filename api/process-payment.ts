@@ -1,21 +1,6 @@
-export const config = {
-    runtime: 'edge',
-};
-
-// Helper function for structured logging
-function logEvent(event: string, data: any) {
-    console.log(JSON.stringify({
-        timestamp: new Date().toISOString(),
-        event,
-        ...data
-    }));
-}
-
+// Simplified payment processing for development environment
 export default async function handler(request: Request) {
-    logEvent('payment_request_received', {
-        method: request.method,
-        url: request.url
-    });
+    console.log('🔄 Payment request received:', request.method, request.url);
 
     if (request.method !== 'POST') {
         return new Response(JSON.stringify({success: false, error: 'Method not allowed'}), {
@@ -28,17 +13,14 @@ export default async function handler(request: Request) {
         const body = await request.json();
         const {token, amount, orderDetails} = body;
 
-        logEvent('payment_request_parsed', {
+        console.log('📝 Payment data:', {
             hasToken: !!token,
             amount: amount,
             hasOrderDetails: !!orderDetails
         });
 
         if (!token || !amount) {
-            logEvent('payment_validation_failed', {
-                missingToken: !token,
-                missingAmount: !amount
-            });
+            console.log('❌ Missing required fields');
             return new Response(JSON.stringify({success: false, error: 'Missing required fields'}), {
                 status: 400,
                 headers: {'Content-Type': 'application/json'}
@@ -50,28 +32,35 @@ export default async function handler(request: Request) {
         const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID;
         const SQUARE_API_URL = process.env.SQUARE_API_URL;
 
+        console.log('🔧 Environment check:', {
+            hasAccessToken: !!squareAccessToken,
+            accessTokenStart: squareAccessToken?.substring(0, 10),
+            hasLocationId: !!SQUARE_LOCATION_ID,
+            locationId: SQUARE_LOCATION_ID,
+            hasApiUrl: !!SQUARE_API_URL,
+            apiUrl: SQUARE_API_URL
+        });
+
         if (!squareAccessToken || !SQUARE_LOCATION_ID || !SQUARE_API_URL) {
-            logEvent('payment_configuration_error', {
-                hasAccessToken: !!squareAccessToken,
-                hasLocationId: !!SQUARE_LOCATION_ID,
-                hasApiUrl: !!SQUARE_API_URL
-            });
-            return new Response(JSON.stringify({success: false, error: 'Payment service not configured'}), {
+            console.log('❌ Missing environment variables');
+            return new Response(JSON.stringify({
+                success: false, 
+                error: 'Payment service not configured properly',
+                debug: {
+                    hasAccessToken: !!squareAccessToken,
+                    hasLocationId: !!SQUARE_LOCATION_ID,
+                    hasApiUrl: !!SQUARE_API_URL
+                }
+            }), {
                 status: 500,
                 headers: {'Content-Type': 'application/json'}
             });
         }
 
-        logEvent('creating_square_payment', {
-            amount: amount,
-            locationId: SQUARE_LOCATION_ID,
-            apiUrl: SQUARE_API_URL
-        });
-
-        // Generate idempotency key (edge runtime compatible)
-        const idempotencyKey = `hb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // Generate simple idempotency key
+        const idempotencyKey = `hb-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         
-        // Create payment with explicit capture
+        // Create payment body
         const paymentBody = {
             source_id: token,
             amount_money: {
@@ -80,18 +69,17 @@ export default async function handler(request: Request) {
             },
             location_id: SQUARE_LOCATION_ID,
             idempotency_key: idempotencyKey,
-            // Add note for tracking
-            note: orderDetails ? `${orderDetails.package} Package - ${orderDetails.customerInfo?.email || 'No email'}` : 'Heritage Box Order',
-            // Explicitly set autocomplete to true AND add accept_partial_authorization to false
-            autocomplete: true,
-            accept_partial_authorization: false
+            note: orderDetails ? `${orderDetails.package} Package` : 'Heritage Box Order',
+            autocomplete: true
         };
 
-        logEvent('square_payment_request', {
-            paymentBody: paymentBody,
+        console.log('💰 Sending payment to Square:', {
+            amount: paymentBody.amount_money.amount,
+            locationId: paymentBody.location_id,
             endpoint: `${SQUARE_API_URL}/v2/payments`
         });
 
+        // Make Square API call
         const response = await fetch(`${SQUARE_API_URL}/v2/payments`, {
             method: 'POST',
             headers: {
@@ -104,126 +92,78 @@ export default async function handler(request: Request) {
 
         const result = await response.json();
         
-        logEvent('square_payment_response', {
+        console.log('📦 Square response:', {
             status: response.status,
             ok: response.ok,
-            hasErrors: !!result.errors,
+            hasPayment: !!result.payment,
             paymentId: result.payment?.id,
             paymentStatus: result.payment?.status,
-            fullResponse: result
+            hasErrors: !!result.errors,
+            errors: result.errors
         });
 
         if (!response.ok) {
-            logEvent('square_payment_failed', {
-                status: response.status,
-                errors: result.errors
-            });
-            
+            console.log('❌ Square API error:', result.errors);
             const errorMessage = result.errors?.[0]?.detail || result.errors?.[0]?.code || 'Payment failed';
-            throw new Error(errorMessage);
+            return new Response(JSON.stringify({
+                success: false, 
+                error: errorMessage,
+                squareErrors: result.errors
+            }), {
+                status: 400,
+                headers: {'Content-Type': 'application/json'}
+            });
         }
 
-        // Check payment status explicitly
+        // Check if we got a payment object
         const payment = result.payment;
         if (!payment) {
-            throw new Error('Payment object not returned from Square');
-        }
-
-        logEvent('payment_status_check', {
-            paymentId: payment.id,
-            status: payment.status,
-            amountMoney: payment.amount_money,
-            cardDetails: payment.card_details
-        });
-
-        // Verify the payment was actually completed/captured
-        if (payment.status !== 'COMPLETED') {
-            logEvent('payment_not_completed', {
-                paymentId: payment.id,
-                actualStatus: payment.status,
-                expectedStatus: 'COMPLETED'
+            console.log('❌ No payment object returned from Square');
+            return new Response(JSON.stringify({
+                success: false, 
+                error: 'Payment object not returned from Square',
+                squareResponse: result
+            }), {
+                status: 500,
+                headers: {'Content-Type': 'application/json'}
             });
-
-            // If payment is only AUTHORIZED, try to capture it explicitly
-            if (payment.status === 'AUTHORIZED') {
-                logEvent('attempting_manual_capture', {
-                    paymentId: payment.id
-                });
-
-                try {
-                    const captureResponse = await fetch(`${SQUARE_API_URL}/v2/payments/${payment.id}/complete`, {
-                        method: 'POST',
-                        headers: {
-                            'Square-Version': '2024-02-15',
-                            'Authorization': `Bearer ${squareAccessToken}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({})
-                    });
-
-                    const captureResult = await captureResponse.json();
-                    
-                    logEvent('manual_capture_response', {
-                        status: captureResponse.status,
-                        ok: captureResponse.ok,
-                        captureResult: captureResult
-                    });
-
-                    if (captureResponse.ok && captureResult.payment) {
-                        logEvent('manual_capture_successful', {
-                            paymentId: captureResult.payment.id,
-                            finalStatus: captureResult.payment.status
-                        });
-                        
-                        return new Response(JSON.stringify({
-                            success: true,
-                            payment: captureResult.payment,
-                            captureMethod: 'manual'
-                        }), {
-                            status: 200,
-                            headers: {'Content-Type': 'application/json'}
-                        });
-                    } else {
-                        throw new Error(`Manual capture failed: ${captureResult.errors?.[0]?.detail || 'Unknown capture error'}`);
-                    }
-                } catch (captureError) {
-                    logEvent('manual_capture_error', {
-                        paymentId: payment.id,
-                        error: captureError.message
-                    });
-                    throw new Error(`Payment authorized but capture failed: ${captureError.message}`);
-                }
-            } else {
-                throw new Error(`Payment status is ${payment.status}, expected COMPLETED`);
-            }
         }
 
-        logEvent('payment_completed_successfully', {
+        console.log('✅ Payment processed:', {
             paymentId: payment.id,
             status: payment.status,
             amount: payment.amount_money?.amount,
-            cardBrand: payment.card_details?.card?.card_brand,
-            lastFour: payment.card_details?.card?.last_4
+            cardBrand: payment.card_details?.card?.card_brand
         });
 
-        return new Response(JSON.stringify({
-            success: true,
-            payment: payment,
-            captureMethod: 'automatic'
-        }), {
-            status: 200,
-            headers: {'Content-Type': 'application/json'}
-        });
+        // Since autocomplete is true, we expect the payment to be COMPLETED.
+        if (payment.status === 'COMPLETED') {
+            console.log('🎉 Payment completed successfully');
+            return new Response(JSON.stringify({
+                success: true,
+                payment: payment
+            }), {
+                status: 200,
+                headers: {'Content-Type': 'application/json'}
+            });
+        } else {
+            console.log('❌ Unexpected payment status:', payment.status);
+            return new Response(JSON.stringify({
+                success: false,
+                error: `Unexpected payment status: ${payment.status}`,
+                payment: payment
+            }), {
+                status: 400, // Bad request, as the status should be COMPLETED
+                headers: {'Content-Type': 'application/json'}
+            });
+        }
 
     } catch (error) {
-        logEvent('payment_processing_error', {
-            error: error.message,
-            stack: error.stack
-        });
-
+        console.error('💥 Payment processing error:', error);
         return new Response(JSON.stringify({
             success: false,
-            error: error.message || 'Internal server error'
+            error: error.message || 'Internal server error',
+            stack: error.stack
         }), {
             status: 500,
             headers: {'Content-Type': 'application/json'}
