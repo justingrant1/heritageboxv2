@@ -61,33 +61,32 @@ declare global {
 
 // Environment-aware configuration
 const getSquareConfig = () => {
-  const isProduction = import.meta.env.MODE === 'production';
+  const squareEnv = import.meta.env.VITE_SQUARE_ENVIRONMENT || 'sandbox';
+  const isProduction = squareEnv === 'production';
 
-  let appId;
-  let locationId;
-
-  if (isProduction) {
-    // In production, we must have the production credentials.
-    appId = import.meta.env.VITE_SQUARE_APP_ID;
-    locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
-  } else {
-    // In development, we can use sandbox credentials as a fallback.
-    appId = import.meta.env.VITE_SQUARE_APP_ID || 'sq0idp-1Zchx5RshtaZ74spcf2w0A';
-    locationId = import.meta.env.VITE_SQUARE_LOCATION_ID || 'LPFZYDYB5G5GM';
-  }
+  const appId = import.meta.env.VITE_SQUARE_APP_ID;
+  const locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
 
   if (!appId || !locationId) {
-    console.error("Square configuration is missing. Ensure VITE_SQUARE_APP_ID and VITE_SQUARE_LOCATION_ID are set in your .env file for the current environment.");
-    // Return empty strings to prevent initialization with incorrect credentials.
-    return { appId: '', locationId: '', jsUrl: 'https://web.squarecdn.com/v1/square.js' };
+    console.error("Square configuration is missing. Ensure VITE_SQUARE_APP_ID and VITE_SQUARE_LOCATION_ID are set in your .env file.");
+    return { appId: '', locationId: '', jsUrl: '' };
   }
+
+  const jsUrl = isProduction 
+    ? 'https://web.squarecdn.com/v1/square.js' 
+    : 'https://sandbox.web.squarecdn.com/v1/square.js';
   
-  console.log('Square Config:', { appId, locationId, mode: import.meta.env.MODE });
+  console.log('Square Config:', { 
+    appId, 
+    locationId, 
+    environment: squareEnv,
+    jsUrl 
+  });
   
   return {
     appId,
     locationId,
-    jsUrl: 'https://web.squarecdn.com/v1/square.js'
+    jsUrl
   };
 };
 
