@@ -453,6 +453,7 @@ const Checkout = () => {
   };
 
   const handlePaymentSuccess = async (paymentResult: any) => {
+    console.log("Full payment result:", paymentResult);
     setIsProcessing(true);
     try {
       const { payment } = paymentResult;
