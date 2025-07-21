@@ -48,11 +48,13 @@ interface SquareCard {
 }
 
 interface SquarePaymentProps {
-  onSuccess: (token: string, details: any) => void;
+  onSuccess: (paymentResponse: any) => void;
   buttonColorClass: string;
   isProcessing: boolean;
-  amount: string;
+  amount: number;
+  orderDetails: any;
   onPaymentAttempt?: () => void;
+  onError: (error: any) => void;
 }
 
 declare global {
@@ -96,7 +98,7 @@ const isMobileDevice = () => {
          (window.innerWidth <= 768);
 };
 
-const SquarePayment = ({ onSuccess, buttonColorClass, isProcessing, amount, onPaymentAttempt }: SquarePaymentProps) => {
+const SquarePayment = ({ onSuccess, buttonColorClass, isProcessing, amount, orderDetails, onPaymentAttempt, onError }: SquarePaymentProps) => {
   const [loaded, setLoaded] = useState(false);
   const [card, setCard] = useState<SquareCard | null>(null);
   const [cardLoading, setCardLoading] = useState(false);
@@ -258,30 +260,43 @@ const SquarePayment = ({ onSuccess, buttonColorClass, isProcessing, amount, onPa
   }, [loaded, card, config, isMobile]);
 
   const handlePaymentSubmit = async () => {
-    // Call the payment attempt callback for tracking
     onPaymentAttempt?.();
     
     if (!card) {
-      toast.error("Payment form not ready", {
-        description: "Please wait for the payment form to load and try again",
-      });
+      toast.error("Payment form not ready");
       return;
     }
 
     try {
       const result = await card.tokenize();
-      if (result.status === 'OK' && result.token) {
-        onSuccess(result.token, result.details);
+      if (result.status !== 'OK' || !result.token) {
+        toast.error("Card tokenization failed. Please check your card details.");
+        return;
+      }
+
+      const response = await fetch('/api/process-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: result.token,
+          amount,
+          orderDetails,
+        }),
+      });
+
+      const paymentResult = await response.json();
+
+      if (paymentResult.success) {
+        toast.success("Payment successful!");
+        onSuccess(paymentResult);
       } else {
-        toast.error("Payment processing failed", {
-          description: "Please check your card details and try again",
-        });
+        toast.error(paymentResult.error || "Payment failed");
+        onError(paymentResult.error);
       }
     } catch (e) {
-      console.error("Square payment error:", e);
-      toast.error("Payment processing error", {
-        description: "Please try again or use a different card",
-      });
+      console.error("Payment processing error:", e);
+      toast.error("An unexpected error occurred during payment.");
+      onError(e);
     }
   };
 
@@ -389,7 +404,7 @@ const SquarePayment = ({ onSuccess, buttonColorClass, isProcessing, amount, onPa
           </>
         ) : (
           <>
-            <span>Pay {amount}</span>
+            <span>Pay ${amount.toFixed(2)}</span>
             <ShieldCheck className="w-6 h-6 opacity-80 group-hover:opacity-100 transition-opacity" />
           </>
         )}
