@@ -146,6 +146,7 @@ export default async function handler(request: Request) {
         });
 
         const result = await response.json();
+        console.log("Square API response:", result);
         logEvent('square_response_received', {
             status: response.status,
             ok: response.ok,
