@@ -68,6 +68,9 @@ export default async function handler(request: Request) {
             apiUrl: SQUARE_API_URL
         });
 
+        // Generate idempotency key (edge runtime compatible)
+        const idempotencyKey = `hb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
         // Create payment with explicit capture
         const paymentBody = {
             source_id: token,
@@ -76,7 +79,7 @@ export default async function handler(request: Request) {
                 currency: 'USD'
             },
             location_id: SQUARE_LOCATION_ID,
-            idempotency_key: crypto.randomUUID(),
+            idempotency_key: idempotencyKey,
             // Add note for tracking
             note: orderDetails ? `${orderDetails.package} Package - ${orderDetails.customerInfo?.email || 'No email'}` : 'Heritage Box Order',
             // Explicitly set autocomplete to true AND add accept_partial_authorization to false
