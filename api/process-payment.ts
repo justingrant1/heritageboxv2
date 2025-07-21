@@ -16,7 +16,8 @@ export default async function handler(request: Request) {
         console.log('📝 Payment data:', {
             hasToken: !!token,
             amount: amount,
-            hasOrderDetails: !!orderDetails
+            hasOrderDetails: !!orderDetails,
+            body: body
         });
 
         if (!token || !amount) {
@@ -76,7 +77,8 @@ export default async function handler(request: Request) {
         console.log('💰 Sending payment to Square:', {
             amount: paymentBody.amount_money.amount,
             locationId: paymentBody.location_id,
-            endpoint: `${SQUARE_API_URL}/v2/payments`
+            endpoint: `${SQUARE_API_URL}/v2/payments`,
+            paymentBody: paymentBody
         });
 
         // Make Square API call
