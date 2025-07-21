@@ -452,12 +452,165 @@ const Checkout = () => {
     }
   };
 
-  const handlePaymentSuccess = async (paymentResult: any) => {
-    console.log("Full payment result:", paymentResult);
+  const handlePaymentSuccess = async (token: string, details: any) => {
+    console.log("Payment details:", details);
     setIsProcessing(true);
+    
     try {
-      const { payment } = paymentResult;
+      console.log('💳 PAYMENT SUCCESS - Starting payment processing');
+      console.log('💳 PAYMENT SUCCESS - Current validated form data:', validatedFormData);
+      
+      // Ensure we have validated form data
+      if (!validatedFormData) {
+        throw new Error('Missing customer information - form data not validated');
+      }
+      
+      const response = await fetch('/api/process-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          amount: parseFloat(calculateTotal()),
+          couponCode: appliedCoupon,
+          orderDetails: {
+            package: packageType,
+            usbDrives,
+            cloudBackup,
+            digitizingSpeed,
+            customerInfo: validatedFormData
+          }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Payment failed');
+      }
+
+      console.log('💳 PAYMENT SUCCESS - Payment processed, now sending email and saving to Airtable');
+
+      // Prepare order data for both email and Airtable
+      const selectedDigitizingOption = getSelectedDigitizingOption();
+      
+      // Generate unique order ID ONCE using the same format as OrderConfirmation
       const orderId = generateOrderNumber();
+      console.log('💳 PAYMENT SUCCESS - Generated single Order ID:', orderId);
+      
+      // Create add-ons array for legacy support
+      const addOnsArray = [];
+      if (usbDrives > 0) {
+        addOnsArray.push(`${usbDrives} USB Drive(s) - $${(usbDrives * USB_DRIVE_PRICE).toFixed(2)}`);
+      }
+      if (cloudBackup > 0) {
+        addOnsArray.push(`${cloudBackup} Year Cloud Backup - $0.00 (Included)`);
+      }
+
+      // Create detailed breakdown for Airtable
+      const addOnDetails = {
+        photoRestoration: { selected: false, cost: 0 },
+        videoEnhancement: { selected: false, cost: 0 },
+        digitalDelivery: { selected: false, cost: 0 },
+        expressShipping: { selected: false, cost: 0 },
+        storageUpgrade: { selected: usbDrives > 0, cost: usbDrives * USB_DRIVE_PRICE },
+        backupCopies: { selected: cloudBackup > 0, cost: 0 } // Cloud backup is included
+      };
+
+      const speedDetails = parseSpeedDetails(`${selectedDigitizingOption.name} (${selectedDigitizingOption.time})`);
+
+      const orderData = {
+        orderId: orderId,
+        customerInfo: {
+          firstName: validatedFormData.firstName,
+          lastName: validatedFormData.lastName,
+          email: validatedFormData.email,
+          phone: validatedFormData.phone,
+          address: validatedFormData.address,
+          city: validatedFormData.city,
+          state: validatedFormData.state,
+          zipCode: validatedFormData.zipCode,
+          fullName: `${validatedFormData.firstName} ${validatedFormData.lastName}`
+        },
+        orderDetails: {
+          package: packageType,
+          packagePrice: `$${packageDetails.numericPrice.toFixed(2)}`,
+          packageFeatures: packageDetails.features.join(", "),
+          subtotal: `$${calculateSubtotal().toFixed(2)}`,
+          couponCode: appliedCoupon || 'None',
+          discountPercent: couponDiscount,
+          discountAmount: `$${(calculateSubtotal() * (couponDiscount / 100)).toFixed(2)}`,
+          totalAmount: `$${calculateTotal()}`,
+          digitizingSpeed: selectedDigitizingOption.name,
+          digitizingTime: selectedDigitizingOption.time,
+          digitizingPrice: selectedDigitizingOption.price === 0 ? "Free" : `$${selectedDigitizingOption.price.toFixed(2)}`,
+          addOns: addOnsArray,
+          addOnDetails: addOnDetails,
+          speedDetails: speedDetails
+        },
+        paymentMethod: `Credit Card (${details?.card?.brand} ending in ${details?.card?.last4})`,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('💳 PAYMENT SUCCESS - Order data prepared for email:', orderData);
+
+      // Send order details to Formspree
+      await sendOrderDetailsToFormspree(orderData, "Order Completed");
+
+      // Send order details to Airtable
+      try {
+        await sendOrderToAirtable({
+          ...orderData,
+          orderDetails: {
+            ...orderData.orderDetails,
+            couponCode: appliedCoupon,
+            discountAmount: `$${(calculateSubtotal() * (couponDiscount / 100)).toFixed(2)}`
+          }
+        });
+        console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable');
+      } catch (airtableError) {
+        console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', airtableError);
+        // Don't fail the checkout process if Airtable fails
+      }
+
+      toast.success("Payment successful!", {
+        description: "Thank you for your order. You will receive a confirmation email shortly.",
+        position: "top-center",
+      });
+      
+      // Pass parameters to order confirmation page including the order ID
+      const params = new URLSearchParams();
+      params.append('package', packageType);
+      if (usbDrives > 0) {
+        params.append('usbDrives', usbDrives.toString());
+      }
+      if (cloudBackup > 0) {
+        params.append('cloudBackup', cloudBackup.toString());
+      }
+      params.append('digitizingSpeed', digitizingSpeed);
+      
+      // Navigate with both URL params and state containing the order ID and customer info
+      navigate('/order-confirmation?' + params.toString(), {
+        state: {
+          orderNumber: orderId,
+          customerInfo: {
+            firstName: validatedFormData.firstName,
+            lastName: validatedFormData.lastName,
+            email: validatedFormData.email
+          }
+        }
+      });
+    } catch (error) {
+      console.error('💳 PAYMENT ERROR:', error);
+      toast.error("Payment failed", {
+        description: error.message || "Please try again or use a different payment method",
+        position: "top-center",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
       const selectedDigitizingOption = getSelectedDigitizingOption();
       const addOnsArray = [];
       if (usbDrives > 0) addOnsArray.push(`${usbDrives} USB Drive(s)`);

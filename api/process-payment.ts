@@ -129,6 +129,7 @@ export default async function handler(request: Request) {
             // Add note with order details for reference
             note: orderDetails ? `${orderDetails.package} Package - ${orderDetails.customerInfo?.email || 'No email'}` : 'Heritage Box Order'
         };
+        console.log("Payment body:", paymentBody);
 
         logEvent('processing_payment_simplified', { 
             amount: paymentBody.amount_money.amount,
@@ -146,7 +147,6 @@ export default async function handler(request: Request) {
         });
 
         const result = await response.json();
-        console.log("Square API response:", result);
         logEvent('square_response_received', {
             status: response.status,
             ok: response.ok,
