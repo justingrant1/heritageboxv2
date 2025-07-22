@@ -11,7 +11,7 @@ export default async function handler(request: Request) {
         }
 
         const body = await request.json();
-        const {token, amount, orderDetails} = body;
+        const {token, amount, orderDetails}:any = body;
 
         console.log('📝 Payment data:', {
             hasToken: !!token,
