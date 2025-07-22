@@ -1,5 +1,11 @@
 {
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 128
+    }
+  },
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     {
       "source": "/((?!api/|_next/|static/|assets/|favicon\\.ico|sitemap\\.xml|robots\\.txt|site\\.webmanifest|lovable-uploads/).*)",
       "destination": "/index.html"
