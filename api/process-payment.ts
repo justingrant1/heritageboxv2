@@ -1,15 +1,15 @@
 // Simplified payment processing for development environment
 export default async function handler(request: Request) {
-    console.log('🔄 Payment request received:', request.method, request.url);
-
-    if (request.method !== 'POST') {
-        return new Response(JSON.stringify({success: false, error: 'Method not allowed'}), {
-            status: 405,
-            headers: {'Content-Type': 'application/json'}
-        });
-    }
-
     try {
+        console.log('🔄 Payment request received:', request.method, request.url);
+
+        if (request.method !== 'POST') {
+            return new Response(JSON.stringify({success: false, error: 'Method not allowed'}), {
+                status: 405,
+                headers: {'Content-Type': 'application/json'}
+            });
+        }
+
         const body = await request.json();
         const {token, amount, orderDetails} = body;
 
