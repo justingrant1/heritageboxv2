@@ -1,8 +1,7 @@
 {
   "files": [],
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
