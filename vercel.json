@@ -6,7 +6,7 @@
   },
   "routes": [
     { "src": "/api/process-payment", "dest": "dist/process-payment.mjs" }
-  ]
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     {
