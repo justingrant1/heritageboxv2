@@ -92,7 +92,7 @@ export default async function handler(request: Request) {
             body: JSON.stringify(paymentBody)
         });
 
-        const result = await response.json();
+        const result:any = await response.json();
         
         console.log('📦 Square response:', {
             status: response.status,
