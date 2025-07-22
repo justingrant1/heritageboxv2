@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "postbuild": "find api -name '*.js' -exec rename 's/\\.js$/\\.cjs/' {} +",
+    "postbuild": "find -name 'process-payment.js' -exec rename 's/\\.js$/\\.cjs/' {} +",
     "lint": "eslint .",
     "preview": "vite preview"
   },
