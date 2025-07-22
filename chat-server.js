@@ -715,5 +715,3 @@ app.listen(PORT, () => {
   console.log(`🧪 Test endpoint: http://localhost:${PORT}/test`);
   console.log(`💬 Chat endpoint: http://localhost:${PORT}/chat`);
 });
-
-module.exports = app;
