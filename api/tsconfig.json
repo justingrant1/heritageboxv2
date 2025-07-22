@@ -1,16 +1,10 @@
 {
-  "files": [],
   "compilerOptions": {
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "noImplicitAny": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noUnusedLocals": false,
-    "strictNullChecks": false,
+    "module": "ESNext",
     "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "strict": true
   }
 }
