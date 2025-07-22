@@ -3,9 +3,6 @@
   "compilerOptions": {
     "moduleResolution": "node",
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
     "noImplicitAny": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,
