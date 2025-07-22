@@ -16,7 +16,7 @@
     /* Bundler mode */
     "moduleResolution": "node",
     "isolatedModules": true,
-    "moduleDetection": "force",
+    "moduleDetection": "auto",
 
     /* Linting */
     "strict": false,
