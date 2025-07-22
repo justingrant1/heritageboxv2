@@ -1,3 +1,7 @@
+export const config = {
+    runtime: 'edge',
+};
+
 // Simplified payment processing for development environment
 export default async function handler(request: Request) {
     try {
