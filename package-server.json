@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Simple Express server for Heritagebox Claude AI chatbot",
   "main": "chat-server.js",
+  "type": "module",
   "scripts": {
     "start": "node chat-server.js",
     "dev": "nodemon chat-server.js",
